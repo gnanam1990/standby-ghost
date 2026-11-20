@@ -67,14 +67,18 @@ test('three roles, offline queue + epoch reconfirm across reconnect', async ({ b
   const lights = await lightsCtx.newPage();
 
   try {
-    // caller walks the chain to a sound standby using only the real UI
+    // caller walks the chain to a sound standby using only the real UI.
+    // Waits observe post-refresh DOM so the console's expectedSeq cursor
+    // has caught up before the next command is issued.
     await caller.goto(`/caller.html?take=${take.id}`);
     const e1 = caller.locator('#cue-table tr', { hasText: 'E1' });
     const s1 = caller.locator('#cue-table tr', { hasText: 'S1' });
     await e1.getByRole('button', { name: 'Standby' }).click();
+    await expect(e1).toContainText('standby');
     await e1.getByRole('button', { name: 'Entrance' }).click();
+    await expect(e1).toContainText('observed');
     await s1.getByRole('button', { name: 'Standby' }).click();
-    await expect(caller.locator('#action-status')).toContainText('STANDBY S1');
+    await expect(s1).toContainText('standby');
 
     // both desks join live
     await sound.goto(`/desk.html?take=${take.id}`);
