@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rehearsal review — Standby Ghost</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header>
+  <h1>Standby Ghost — rehearsal review</h1>
+  <p id="review-sub"></p>
+</header>
+<main>
+  <section aria-labelledby="overlay-h">
+    <h2 id="overlay-h">Ghost overlay — planned vs actual</h2>
+    <p class="muted small">Dashed track: planned calling order. Solid track: what was actually recorded.
+    The hatched marker shows the earliest recorded divergence.</p>
+    <div id="timeline" role="img" aria-label="Timeline of planned and recorded cue order"></div>
+    <div id="divergence-panel" class="panel" tabindex="0" aria-live="polite">
+      <h3>First divergence</h3>
+      <p id="divergence-text">None recorded.</p>
+      <ul class="plain" id="divergence-gaps"></ul>
+    </div>
+  </section>
+
+  <section aria-labelledby="table-h">
+    <h2 id="table-h">Linear comparison (same information)</h2>
+    <table id="compare-table">
+      <thead><tr><th>Cue</th><th>Lane</th><th>Planned position</th><th>Observed at seq</th><th>Note</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p id="table-divergence" class="status-line"></p>
+  </section>
+
+  <section aria-labelledby="unresolved-h">
+    <h2 id="unresolved-h">Unobserved outcomes</h2>
+    <p class="muted small">An absent observation does not prove a physical action failed — it is an evidence gap.</p>
+    <ul class="plain" id="unresolved-list"></ul>
+  </section>
+</main>
+<script type="module" src="/review.js"></script>
+</body>
+</html>

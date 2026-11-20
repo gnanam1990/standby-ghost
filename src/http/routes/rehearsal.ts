@@ -5,6 +5,7 @@ import { canReadTake, requireMembership } from '../../domain/authz.js';
 import { getTake } from '../../domain/takes.js';
 import { applyCommand, foldTake, listEvents, loadCues, type CommandInput } from '../../domain/engine.js';
 import type { RoomBus } from '../../bus.js';
+import { getReplay } from '../../domain/replay.js';
 
 export function registerRehearsalRoutes(router: Router, db: DatabaseSync, bus: RoomBus): void {
   router.add('POST', '/api/takes/:id/commands', (ctx) => {
@@ -49,6 +50,16 @@ export function registerRehearsalRoutes(router: Router, db: DatabaseSync, bus: R
       },
       events: listEvents(db, take.id, after),
     });
+  });
+
+  // Ghost replay: planned vs observed path + first evidenced divergence.
+  router.add('GET', '/api/takes/:id/replay', (ctx) => {
+    const take = getTake(db, ctx.params.id!);
+    if (!take) throw new HttpError(404, 'not_found', 'unknown take');
+    if (!canReadTake(db, take, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
+    }
+    sendJson(ctx.res, 200, { replay: getReplay(db, take.id) });
   });
 
   // Materialized room state from a fresh fold of the durable log.
