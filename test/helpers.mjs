@@ -1,0 +1,54 @@
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { openDatabase } from '../dist/db/database.js';
+import { startServer } from '../dist/http/server.js';
+
+export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const FIXTURE_CSV = readFileSync(
+  path.join(repoRoot, 'fixtures', 'the-returning-letter.csv'),
+  'utf8',
+);
+
+export function tmpDir() {
+  return mkdtempSync(path.join(tmpdir(), 'sg-test-'));
+}
+
+export async function spawnApp({ dbPath } = {}) {
+  const dir = tmpDir();
+  const db = openDatabase(dbPath ?? path.join(dir, 'test.db'));
+  const handle = await startServer({ port: 0, dbPath: dbPath ?? ':memory:', staticDir: path.join(repoRoot, 'public') }, db);
+  const base = `http://127.0.0.1:${handle.port}`;
+  return {
+    base,
+    db,
+    dir,
+    async close() {
+      await handle.close();
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
+    },
+  };
+}
+
+export async function api(base, method, p, body, token) {
+  const headers = {};
+  if (body !== undefined) headers['content-type'] = 'application/json';
+  if (token) headers['authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${base}${p}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+  return { status: res.status, data };
+}
+
+export async function makeProduction(base, name = 'Test Prod') {
+  const { status, data } = await api(base, 'POST', '/api/productions', { name });
+  if (status !== 201) throw new Error(`create production failed: ${JSON.stringify(data)}`);
+  return data;
+}

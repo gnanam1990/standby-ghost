@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calling sheet</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="no-print">
+  <h1>Standby Ghost — calling sheet</h1>
+</header>
+<main>
+  <section>
+    <h2 id="sheet-title">Calling sheet</h2>
+    <p class="muted small" id="sheet-meta"></p>
+    <p class="muted small" id="sheet-changes"></p>
+    <table id="sheet-table">
+      <thead><tr><th>#</th><th>Cue</th><th>Lane</th><th>Trigger</th><th>After</th><th>Label</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row no-print" style="margin-top:.75rem">
+      <button class="primary" onclick="window.print()">Print</button>
+    </div>
+  </section>
+</main>
+<script type="module">
+import { api } from '/api.js';
+const rev = new URLSearchParams(location.search).get('rev');
+const { ok, data } = await api('GET', `/api/scripts/${rev}`);
+if (!ok) {
+  document.getElementById('sheet-title').textContent = `Sheet unavailable: ${data?.message ?? 'error'}`;
+} else {
+  const r = data.revision;
+  document.getElementById('sheet-title').textContent = `Calling sheet — R${r.seq} ${r.title}`;
+  document.getElementById('sheet-meta').textContent =
+    `Revision ${r.id} · digest ${r.digest} · schema v${data.schemaVersion} · created ${r.createdAt}`;
+  const ch = data.changes;
+  document.getElementById('sheet-changes').textContent =
+    `Changes vs parent — added: ${ch.added.join(', ') || 'none'}; removed: ${ch.removed.join(', ') || 'none'}; changed: ${ch.changed.join(', ') || 'none'}`;
+  const tbody = document.querySelector('#sheet-table tbody');
+  const byId = new Map(r.cues.map((c) => [c.id, c]));
+  r.callingOrder.forEach((id, i) => {
+    const c = byId.get(id);
+    const tr = document.createElement('tr');
+    for (const v of [i + 1, c.id, c.lane, c.trigger, c.deps.join(', ') || '—', c.label]) {
+      const td = document.createElement('td');
+      td.textContent = String(v);
+      tr.append(td);
+    }
+    tbody.append(tr);
+  });
+}
+</script>
+</body>
+</html>
