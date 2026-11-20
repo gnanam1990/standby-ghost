@@ -51,7 +51,7 @@ test('T-003 three distinct role invitations join and show on the roster', async 
   // all three sessions are distinct and valid
   assert.equal(new Set(joined.map((j) => j.sessionToken)).size, 3);
 
-  const roomInfo = await api(app.base, 'GET', `/api/rooms/${room.id}`);
+  const roomInfo = await api(app.base, 'GET', `/api/rooms/${room.id}`, null, prod.ownerToken);
   const members = roomInfo.data.roster.members;
   assert.equal(members.length, 3);
   for (const [role, name] of seats) {
@@ -76,13 +76,13 @@ test('T-003b replace a desk operator and revoke its generation', async (t) => {
   assert.equal(s2.status, 201);
   assert.equal(s2.data.member.generation, 2);
 
-  const roster = (await api(app.base, 'GET', `/api/rooms/${room.id}`)).data.roster.members;
+  const roster = (await api(app.base, 'GET', `/api/rooms/${room.id}`, null, prod.ownerToken)).data.roster.members;
   assert.equal(roster.find((m) => m.name === 'Theo').status, 'revoked');
   assert.equal(roster.find((m) => m.name === 'Ada').status, 'active');
 
-  // old session is dead server-side
+  // old session is dead server-side: reads and writes are both denied
   const me = await api(app.base, 'GET', `/api/rooms/${room.id}`, null, s1.data.sessionToken);
-  assert.equal(me.data.me, null);
+  assert.equal(me.status, 403);
   const takeTry = await api(app.base, 'POST', `/api/rooms/${room.id}/takes`, {}, s1.data.sessionToken);
   assert.equal(takeTry.status, 403);
 });

@@ -96,3 +96,9 @@ MIGRATIONS.push({
     );
   `,
 });
+MIGRATIONS.push({
+  version: 3,
+  sql: `
+    ALTER TABLE productions ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0;
+  `,
+});

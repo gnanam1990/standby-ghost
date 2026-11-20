@@ -26,8 +26,15 @@
 </main>
 <script type="module">
 import { api } from '/api.js';
-const rev = new URLSearchParams(location.search).get('rev');
-const { ok, data } = await api('GET', `/api/scripts/${rev}`);
+const q = new URLSearchParams(location.search);
+const rev = q.get('rev');
+const prod = q.get('prod');
+const room = q.get('room');
+const token = (prod && sessionStorage.getItem(`owner:${prod}`))
+  || sessionStorage.getItem(`room-owner:${room}`)
+  || (room && localStorage.getItem(`sg-session:${room}`))
+  || null;
+const { ok, data } = await api('GET', `/api/scripts/${rev}`, null, token);
 if (!ok) {
   document.getElementById('sheet-title').textContent = `Sheet unavailable: ${data?.message ?? 'error'}`;
 } else {

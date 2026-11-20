@@ -13,6 +13,7 @@ import {
 export interface Production {
   id: string;
   name: string;
+  isDemo: boolean;
   createdAt: string;
 }
 
@@ -59,27 +60,27 @@ function cueFromRow(r: CueRow): CueDef {
   };
 }
 
-export function createProduction(db: DatabaseSync, name: string) {
+export function createProduction(db: DatabaseSync, name: string, isDemo = false) {
   const token = newToken();
   const id = newId('prod');
   db.prepare(
-    'INSERT INTO productions (id, name, owner_token_hash, created_at) VALUES (?, ?, ?, ?)',
-  ).run(id, name, sha256(token), new Date().toISOString());
-  return { id, name, ownerToken: token };
+    'INSERT INTO productions (id, name, owner_token_hash, created_at, is_demo) VALUES (?, ?, ?, ?, ?)',
+  ).run(id, name, sha256(token), new Date().toISOString(), isDemo ? 1 : 0);
+  return { id, name, isDemo, ownerToken: token };
 }
 
 export function getProduction(db: DatabaseSync, id: string): Production | null {
   const row = db
-    .prepare('SELECT id, name, created_at FROM productions WHERE id = ?')
-    .get(id) as { id: string; name: string; created_at: string } | undefined;
-  return row ? { id: row.id, name: row.name, createdAt: row.created_at } : null;
+    .prepare('SELECT id, name, is_demo, created_at FROM productions WHERE id = ?')
+    .get(id) as { id: string; name: string; is_demo: number; created_at: string } | undefined;
+  return row ? { id: row.id, name: row.name, isDemo: !!row.is_demo, createdAt: row.created_at } : null;
 }
 
-export function listProductions(db: DatabaseSync): Production[] {
+export function listProductions(db: DatabaseSync, demoOnly = false): Production[] {
   const rows = db
-    .prepare('SELECT id, name, created_at FROM productions ORDER BY created_at')
-    .all() as unknown as { id: string; name: string; created_at: string }[];
-  return rows.map((r) => ({ id: r.id, name: r.name, createdAt: r.created_at }));
+    .prepare(`SELECT id, name, is_demo, created_at FROM productions ${demoOnly ? 'WHERE is_demo = 1' : ''} ORDER BY created_at`)
+    .all() as unknown as { id: string; name: string; is_demo: number; created_at: string }[];
+  return rows.map((r) => ({ id: r.id, name: r.name, isDemo: !!r.is_demo, createdAt: r.created_at }));
 }
 
 /** Verify a bearer token against the production owner hash. */

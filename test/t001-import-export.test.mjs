@@ -29,7 +29,9 @@ test('T-001 import, export and re-import preserve cue identity and digest', asyn
   assert.deepEqual(s2.deps, ['L1']);
   assert.deepEqual(r1.callingOrder, ['E1', 'S1', 'L1', 'L2', 'S2']);
 
-  const exp = await fetch(`${app.base}/api/scripts/${r1.id}/export.csv`);
+  const exp = await fetch(`${app.base}/api/scripts/${r1.id}/export.csv`, {
+    headers: { authorization: `Bearer ${prod.ownerToken}` },
+  });
   assert.equal(exp.status, 200);
   const csvOut = await exp.text();
 
@@ -68,7 +70,7 @@ test('T-001b imported revision survives a server restart', async (t) => {
   db = openDatabase(dbPath);
   app = await startServer({ port: 0, dbPath, staticDir: path.join(repoRoot, 'public') }, db);
   const base2 = `http://127.0.0.1:${app.port}`;
-  const got = await api(base2, 'GET', `/api/scripts/${revId}`);
+  const got = await api(base2, 'GET', `/api/scripts/${revId}`, null, prod.ownerToken);
   assert.equal(got.status, 200);
   assert.equal(got.data.revision.digest, digest);
   assert.equal(got.data.revision.cues.length, 5);
