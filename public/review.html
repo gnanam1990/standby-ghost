@@ -38,6 +38,34 @@
     <p class="muted small">An absent observation does not prove a physical action failed — it is an evidence gap.</p>
     <ul class="plain" id="unresolved-list"></ul>
   </section>
+
+  <section aria-labelledby="compare-h" id="compare-section" hidden>
+    <h2 id="compare-h">Compare takes</h2>
+    <label>Other take in this room <select id="compare-other"></select></label>
+    <button id="compare-btn">Compare</button>
+    <table id="compare-result" hidden>
+      <thead><tr><th></th><th>Take</th><th>Revision</th><th>Status</th><th>Events</th><th>First divergence</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section aria-labelledby="handoff-h" id="handoff-section" hidden>
+    <h2 id="handoff-h">Hand off — reviewed revision</h2>
+    <p class="muted small">Owner credentials required. Edit the corrected CSV, record the
+    crew's approval, and create a new immutable revision. The take above keeps its
+    original pinned revision.</p>
+    <label>Title <input id="rev-title" type="text" maxlength="120"></label>
+    <label>Corrected CSV <textarea id="rev-csv" spellcheck="false" rows="10"></textarea></label>
+    <label>Approval note <input id="rev-note" type="text" maxlength="500"
+      placeholder="e.g. SM approved: move S1 after L1 on the recovery pass"></label>
+    <button id="rev-create" class="primary">Create reviewed revision</button>
+    <p class="status-line" id="rev-status" role="status" aria-live="polite"></p>
+    <div id="rev-done" hidden>
+      <a id="rev-export" href="#">Download corrected calling sheet (CSV)</a>
+      <button id="repin-btn">Repin room to this revision</button>
+      <p class="status-line" id="repin-status" role="status" aria-live="polite"></p>
+    </div>
+  </section>
 </main>
 <script type="module" src="/review.js"></script>
 </body>

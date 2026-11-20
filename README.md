@@ -26,9 +26,26 @@ The durable store defaults to `./data/standby-ghost.db`. Override with
 ## Test
 
 ```sh
-npm test           # typecheck build + node:test suite (14 pack tests wired to T-xxx names)
+npm test           # typecheck build + node:test suite (pack tests wired to T-xxx names)
+npm run test:browser   # real Chromium specs via @playwright/test (starts its own server)
 npm run typecheck
 ```
+
+The browser suite covers the release-critical paths in real Chromium:
+single-binding of room create / export, three-role live rehearsal with an
+offline desk and epoch reconfirm, ghost-review divergence parity between the
+overlay and the table, and keyboard-only hold/resume at 375px with reduced
+motion.
+
+## Demo
+
+```sh
+npm run seed:demo   # creates a flagged public demo production + room + join links
+```
+
+Only productions explicitly flagged `is_demo` are publicly readable; all
+other production material requires the owner token or a live room-role
+session.
 
 ## Architecture
 
@@ -40,9 +57,13 @@ src/
 public/      buildless ES-module client (caller desk, sound/lights desks, ghost review)
 fixtures/    original authorized scene "The returning letter" (40s, 5 cues)
 test/        node:test suites named after the pack's T-001…T-014 cases
-.kiro/       spec, steering and hook materials used during development
-docs/        architecture and decision records
+test/browser/ Playwright specs driving the real client in Chromium
+scripts/     seed-demo.mjs — one-command judge/demo initialization
 ```
+
+Development notes: this repository was built without access to a Kiro CLI
+session, so no `.kiro/` materials are shipped — claiming them would be
+fabrication.
 
 Key properties:
 

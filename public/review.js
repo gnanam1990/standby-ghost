@@ -1,22 +1,42 @@
 import { api, sessionForTake } from '/api.js';
 
 const $ = (id) => document.getElementById(id);
-const takeId = new URLSearchParams(location.search).get('take');
+const params = new URLSearchParams(location.search);
+const takeId = params.get('take');
+const prodParam = params.get('prod');
 let session = null;
+let roomId = null;
 
 async function init() {
   const found = await sessionForTake(takeId);
-  if (!found) {
+  if (found) {
+    session = found.session;
+    roomId = found.take.roomId;
+  }
+  // Owner path: a production owner without a joined seat passes ?prod= and
+  // the browser-session owner token authorizes the read.
+  if (!session && prodParam) {
+    const ownerToken = sessionStorage.getItem(`owner:${prodParam}`);
+    if (ownerToken) {
+      const { ok, data } = await api('GET', `/api/takes/${takeId}`, null, ownerToken);
+      if (ok) {
+        session = ownerToken;
+        roomId = data.take.roomId;
+      }
+    }
+  }
+  if (!session) {
     $('review-sub').textContent = 'Take unavailable — owner or room role required.';
     return;
   }
-  session = found.session;
   const res = await api('GET', `/api/takes/${takeId}/replay`, null, session);
   if (!res.ok) {
     $('review-sub').textContent = `Replay unavailable: ${res.data?.message ?? 'error'}`;
     return;
   }
   render(res.data.replay);
+  await initCompare();
+  await initHandoff(res.data.replay);
 }
 
 function render(replay) {
@@ -170,5 +190,126 @@ function renderUnresolved(replay) {
     list.append(li);
   }
 }
+
+// --- take comparison (FR-12) ------------------------------------------------
+
+let roomTakes = [];
+
+async function initCompare() {
+  const { ok, data } = await api('GET', `/api/rooms/${roomId}`, null, session);
+  if (!ok) return;
+  roomTakes = data.takes ?? [];
+  const others = roomTakes.filter((t) => t.id !== takeId);
+  if (!others.length) return;
+  $('compare-section').hidden = false;
+  $('compare-other').replaceChildren(
+    ...others.map((t) => new Option(`${t.id.slice(-6)} · ${t.status} · epoch ${t.epoch}`, t.id)),
+  );
+}
+
+$('compare-btn').addEventListener('click', async () => {
+  const other = $('compare-other').value;
+  if (!other) return;
+  const { ok, data } = await api('GET', `/api/takes/${takeId}/compare?other=${encodeURIComponent(other)}`, null, session);
+  if (!ok) return;
+  const tbody = document.querySelector('#compare-result tbody');
+  tbody.replaceChildren();
+  for (const [label, s] of [['this take', data.a], ['other take', data.b]]) {
+    const tr = document.createElement('tr');
+    const divText = s.firstDivergence
+      ? `${s.firstDivergence.cueId} at seq ${s.firstDivergence.seq}`
+      : 'none';
+    for (const v of [label, s.takeId.slice(-6), s.scriptRevisionId.slice(-6), s.status, s.eventCount, divText]) {
+      const td = document.createElement('td');
+      td.textContent = String(v);
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+  $('compare-result').hidden = false;
+});
+
+// --- reviewed revision handoff (FR-11) --------------------------------------
+
+let ownerToken = null;
+let prodId = null;
+
+async function initHandoff(replay) {
+  prodId = prodParam ?? (await roomProduction());
+  if (!prodId) return;
+  ownerToken = sessionStorage.getItem(`owner:${prodId}`);
+  if (!ownerToken) return; // desks see the review but not the owner handoff
+  $('handoff-section').hidden = false;
+  const res = await fetch(`/api/scripts/${replay.scriptRevisionId}/export.csv`, {
+    headers: { authorization: `Bearer ${ownerToken}` },
+  });
+  if (res.ok) $('rev-csv').value = await res.text();
+  const { data } = await api('GET', `/api/scripts/${replay.scriptRevisionId}`, null, ownerToken);
+  if (data?.revision?.title) $('rev-title').value = `${data.revision.title} — corrected`;
+}
+
+async function roomProduction() {
+  if (!roomId) return null;
+  const { ok, data } = await api('GET', `/api/rooms/${roomId}`, null, session);
+  return ok ? data.room.productionId : null;
+}
+
+$('rev-create').addEventListener('click', async () => {
+  const csv = $('rev-csv').value;
+  if (!csv.trim()) return;
+  const note = $('rev-note').value.trim();
+  if (!note) {
+    $('rev-status').textContent = 'Record the approval note — the exported sheet must match it.';
+    $('rev-status').className = 'status-line error';
+    return;
+  }
+  const { ok, data } = await api('POST', `/api/productions/${prodId}/scripts`, {
+    csv,
+    title: $('rev-title').value.trim() || 'Corrected scene',
+    clientRequestId: crypto.randomUUID(),
+    sourceTakeId: takeId,
+    approvalNote: note,
+  }, ownerToken);
+  if (!ok) {
+    $('rev-status').textContent = data?.message ?? 'Revision rejected.';
+    $('rev-status').className = 'status-line error';
+    return;
+  }
+  $('rev-status').textContent = data.existing
+    ? `Already recorded as R${data.revision.seq} — idempotent retry returned the same revision.`
+    : `Created R${data.revision.seq} — ${data.revision.cues.length} cues.`;
+  $('rev-status').className = 'status-line ok';
+  $('rev-done').hidden = false;
+  $('rev-export').dataset.rev = data.revision.id;
+  $('repin-btn').dataset.rev = data.revision.id;
+});
+
+$('rev-export').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const revId = $('rev-export').dataset.rev;
+  const res = await fetch(`/api/scripts/${revId}/export.csv`, {
+    headers: { authorization: `Bearer ${ownerToken}` },
+  });
+  if (!res.ok) {
+    $('rev-status').textContent = 'Export denied.';
+    $('rev-status').className = 'status-line error';
+    return;
+  }
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${revId}-calling-sheet.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$('repin-btn').addEventListener('click', async () => {
+  const { ok, data } = await api('POST', `/api/rooms/${roomId}/revision`,
+    { scriptRevisionId: $('repin-btn').dataset.rev }, ownerToken);
+  $('repin-status').textContent = ok
+    ? 'Room now starts new takes on the corrected revision. The take above is unchanged.'
+    : data?.message ?? 'Could not repin.';
+  $('repin-status').className = `status-line ${ok ? 'ok' : 'error'}`;
+});
 
 await init();

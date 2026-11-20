@@ -139,6 +139,25 @@ export function registerRoomRoutes(router: Router, db: DatabaseSync, bus: RoomBu
     });
   });
 
+  // Repin the room's working revision between takes — e.g. to rehearse the
+  // corrected sheet derived from a review. Started takes keep the revision
+  // they were pinned to (INV-01); only new takes pick this up.
+  router.add('POST', '/api/rooms/:id/revision', (ctx) => {
+    const room = roomOr404(db, ctx.params.id!);
+    if (!isOwner(db, room.productionId, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner credentials required');
+    }
+    const body = (ctx.body ?? {}) as { scriptRevisionId?: string };
+    const rev = body.scriptRevisionId
+      ? db
+          .prepare('SELECT id FROM script_revisions WHERE id = ? AND production_id = ?')
+          .get(body.scriptRevisionId, room.productionId) as { id: string } | undefined
+      : undefined;
+    if (!rev) throw new HttpError(422, 'invalid_input', 'scriptRevisionId is not a revision in this production');
+    db.prepare('UPDATE rooms SET script_revision_id = ? WHERE id = ?').run(rev.id, room.id);
+    sendJson(ctx.res, 200, { room: getRoom(db, room.id) });
+  });
+
   // Starting a take is the caller's first room-scoped command (FR-05+ uses
   // the commands endpoint on top of it). Caller role only.
   router.add('POST', '/api/rooms/:id/takes', (ctx) => {

@@ -7,7 +7,7 @@ import { listEvents } from './domain/engine.js';
 import type { RoomBus } from './bus.js';
 
 interface ClientHello {
-  memberId: string;
+  id: string;
   roomId: string;
   role: string;
   name: string;
@@ -47,6 +47,18 @@ export function attachWebSocket(server: Server, db: DatabaseSync, bus: RoomBus):
     send({ type: 'hello', member });
 
     ws.on('message', (raw) => {
+      // A session revoked mid-connection (operator replaced) is dead even on
+      // its still-open socket — re-check liveness on every message (NFR-01,
+      // T-013).
+      const live = db
+        .prepare('SELECT 1 AS ok FROM memberships WHERE id = ? AND revoked_at IS NULL')
+        .get(member.id) as { ok: number } | undefined;
+      if (!live) {
+        send({ type: 'error', code: 'revoked', message: 'role session was replaced' });
+        ws.close(4003, 'session revoked');
+        unsubscribe();
+        return;
+      }
       let msg: { type?: string; takeId?: string; after?: number };
       try {
         msg = JSON.parse(String(raw));
