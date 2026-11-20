@@ -7,6 +7,8 @@ import { HttpError, readBody, Router, sendError, sendJson } from './router.js';
 import { registerScriptRoutes } from './routes/scripts.js';
 import { registerRoomRoutes } from './routes/rooms.js';
 import { registerRehearsalRoutes } from './routes/rehearsal.js';
+import { RoomBus } from '../bus.js';
+import { attachWebSocket } from '../ws.js';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -45,9 +47,10 @@ export async function startServer(
   db: DatabaseSync,
 ): Promise<ServerHandle> {
   const router = new Router();
+  const bus = new RoomBus();
   registerScriptRoutes(router, db);
-  registerRoomRoutes(router, db);
-  registerRehearsalRoutes(router, db);
+  registerRoomRoutes(router, db, bus);
+  registerRehearsalRoutes(router, db, bus);
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -88,6 +91,7 @@ export async function startServer(
     }
   });
 
+  attachWebSocket(server, db, bus);
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
     server.listen(config.port, () => resolve());
