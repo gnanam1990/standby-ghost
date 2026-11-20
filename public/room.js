@@ -81,7 +81,11 @@ function renderTakes(takes) {
   list.replaceChildren();
   for (const t of takes) {
     const li = document.createElement('li');
-    li.textContent = `Take ${t.id.slice(-6)} · ${t.status} · epoch ${t.epoch} · seq ${t.nextSeq - 1}`;
+    li.textContent = `Take ${t.id.slice(-6)} · ${t.status} · epoch ${t.epoch} · seq ${t.nextSeq - 1} `;
+    const open = document.createElement('a');
+    open.href = `/caller.html?take=${encodeURIComponent(t.id)}`;
+    open.textContent = 'Open caller console';
+    li.append(open);
     list.append(li);
   }
   if (!takes.length) {

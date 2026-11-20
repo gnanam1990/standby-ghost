@@ -1,0 +1,70 @@
+import type { DatabaseSync } from 'node:sqlite';
+import { HttpError, Router, bearer, sendJson } from '../router.js';
+import { memberBySession, roomRoster } from '../../domain/rooms.js';
+import { getTake } from '../../domain/takes.js';
+import { applyCommand, foldTake, listEvents, loadCues, type CommandInput } from '../../domain/engine.js';
+
+export function registerRehearsalRoutes(router: Router, db: DatabaseSync): void {
+  router.add('POST', '/api/takes/:id/commands', (ctx) => {
+    const take = getTake(db, ctx.params.id!);
+    if (!take) throw new HttpError(404, 'not_found', 'unknown take');
+    const member = memberBySession(db, bearer(ctx.req));
+    if (!member || member.roomId !== take.roomId) {
+      throw new HttpError(403, 'forbidden', 'a live role session is required');
+    }
+    const body = (ctx.body ?? {}) as CommandInput;
+    const result = applyCommand(db, take.id, member, {
+      commandId: String(body.commandId ?? ''),
+      epoch: Number(body.epoch),
+      ...(body.expectedSeq === undefined ? {} : { expectedSeq: Number(body.expectedSeq) }),
+      ...(body.cueId === undefined ? {} : { cueId: String(body.cueId) }),
+      kind: body.kind,
+      payload: (body.payload ?? {}) as Record<string, unknown>,
+    });
+    sendJson(ctx.res, result.status, {
+      event: result.event,
+      replayed: result.replayed,
+    });
+  });
+
+  // Catch-up cursor: clients request events strictly after their last seq.
+  router.add('GET', '/api/takes/:id/events', (ctx) => {
+    const take = getTake(db, ctx.params.id!);
+    if (!take) throw new HttpError(404, 'not_found', 'unknown take');
+    const member = memberBySession(db, bearer(ctx.req));
+    if (!member || member.roomId !== take.roomId) {
+      throw new HttpError(403, 'forbidden', 'a live role session is required');
+    }
+    const after = Math.max(0, Number(ctx.query.get('after') ?? 0) || 0);
+    sendJson(ctx.res, 200, {
+      take: {
+        id: take.id,
+        status: take.status,
+        epoch: take.epoch,
+        nextSeq: take.nextSeq,
+      },
+      events: listEvents(db, take.id, after),
+    });
+  });
+
+  // Materialized room state from a fresh fold of the durable log.
+  router.add('GET', '/api/takes/:id/snapshot', (ctx) => {
+    const take = getTake(db, ctx.params.id!);
+    if (!take) throw new HttpError(404, 'not_found', 'unknown take');
+    const member = memberBySession(db, bearer(ctx.req));
+    if (!member || member.roomId !== take.roomId) {
+      throw new HttpError(403, 'forbidden', 'a live role session is required');
+    }
+    const cues = loadCues(db, take.scriptRevisionId);
+    const { cueStates, status, epoch } = foldTake(cues, listEvents(db, take.id));
+    sendJson(ctx.res, 200, {
+      take: { ...take, status, epoch },
+      cues: cues.map((c) => ({
+        ...c,
+        state: cueStates[c.id],
+      })),
+      roster: roomRoster(db, take.roomId),
+      me: member,
+    });
+  });
+}

@@ -52,3 +52,45 @@ export async function makeProduction(base, name = 'Test Prod') {
   if (status !== 201) throw new Error(`create production failed: ${JSON.stringify(data)}`);
   return data;
 }
+
+/**
+ * Full scenario: production + scene + room + three joined roles + take.
+ * Returns sessions keyed by role for issuing commands.
+ */
+export async function makeRehearsal(app) {
+  const prod = await makeProduction(app.base);
+  const rev = await api(app.base, 'POST', `/api/productions/${prod.id}/scripts`, {
+    csv: FIXTURE_CSV, title: 'The returning letter',
+  }, prod.ownerToken);
+  const room = await api(app.base, 'POST', `/api/productions/${prod.id}/rooms`, {
+    scriptRevisionId: rev.data.revision.id, name: 'Night one',
+  }, prod.ownerToken);
+  const sessions = {};
+  for (const [role, name] of [['caller', 'Priya'], ['sound', 'Theo'], ['lights', 'June']]) {
+    const inv = await api(app.base, 'POST', `/api/rooms/${room.data.room.id}/invitations`, {
+      role, name, ttlMinutes: 60,
+    }, prod.ownerToken);
+    const joined = await api(app.base, 'POST', '/api/join', { token: inv.data.token, name });
+    sessions[role] = joined.data;
+  }
+  const take = await api(app.base, 'POST', `/api/rooms/${room.data.room.id}/takes`, {}, sessions.caller.sessionToken);
+  return {
+    prod,
+    room: room.data.room,
+    sessions,
+    take: take.data.take,
+  };
+}
+
+let cmdCounter = 0;
+export function nextCommandId(tag = 'cmd') {
+  return `${tag}-${Date.now()}-${cmdCounter++}`;
+}
+
+/** Issue a take command; returns {status, data}. */
+export async function command(base, takeId, session, { kind, cueId, epoch = 1, expectedSeq, payload = {}, commandId }) {
+  const body = { commandId: commandId ?? nextCommandId(kind), epoch, kind, payload };
+  if (cueId) body.cueId = cueId;
+  if (expectedSeq !== undefined) body.expectedSeq = expectedSeq;
+  return api(base, 'POST', `/api/takes/${takeId}/commands`, body, session);
+}

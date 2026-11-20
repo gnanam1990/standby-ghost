@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Caller console — Standby Ghost</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header>
+  <h1>Standby Ghost — caller</h1>
+  <p id="take-sub">Take</p>
+</header>
+<main>
+  <section aria-labelledby="cues-h">
+    <h2 id="cues-h">Cues</h2>
+    <div class="row" style="margin-bottom:.5rem">
+      <button id="hold-btn" class="danger">Hold</button>
+      <button id="finish-btn">Finish take</button>
+    </div>
+    <table id="cue-table">
+      <thead><tr>
+        <th>Cue</th><th>Lane</th><th>Expected signal</th><th>State</th><th>Actions</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="status-line" id="action-status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section aria-labelledby="hold-h" id="hold-panel" hidden>
+    <h2 id="hold-h">Held — recovery</h2>
+    <div class="panel">
+      <h3>Hold reason</h3>
+      <label for="hold-reason">Reason (required)</label>
+      <input id="hold-reason" type="text" maxlength="200">
+      <button id="hold-confirm" class="danger">Confirm hold</button>
+    </div>
+    <div class="panel" id="skip-panel" hidden>
+      <h3>Skip a cue</h3>
+      <label for="skip-cue">Cue</label>
+      <select id="skip-cue"></select>
+      <label for="skip-path">Affected dependent path</label>
+      <select id="skip-path">
+        <option value="allow">dependents allowed</option>
+        <option value="block">dependents blocked until resume</option>
+      </select>
+      <label for="skip-reason">Reason (required)</label>
+      <input id="skip-reason" type="text" maxlength="200">
+      <button id="skip-confirm" class="primary">Record skip</button>
+    </div>
+    <div class="panel" id="resume-panel" hidden>
+      <h3>Resume</h3>
+      <label for="resume-dest">Resume at cue</label>
+      <select id="resume-dest"></select>
+      <label for="resume-reason">Reason (required)</label>
+      <input id="resume-reason" type="text" maxlength="200">
+      <button id="resume-confirm" class="primary">Resume take</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="log-h">
+    <h2 id="log-h">Event log</h2>
+    <table id="event-table">
+      <thead><tr><th>Seq</th><th>Epoch</th><th>Actor</th><th>Kind</th><th>Cue</th><th>Detail</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+<script type="module" src="/caller.js"></script>
+</body>
+</html>
