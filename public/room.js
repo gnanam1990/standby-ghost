@@ -91,7 +91,10 @@ function renderTakes(takes) {
       open.href = `/desk.html?take=${encodeURIComponent(t.id)}`;
       open.textContent = 'Open desk';
     }
-    li.append(open);
+    const review = document.createElement('a');
+    review.href = `/review.html?take=${encodeURIComponent(t.id)}`;
+    review.textContent = 'Review replay';
+    li.append(open, ' ', review);
     list.append(li);
   }
   if (!takes.length) {
