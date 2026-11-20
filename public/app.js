@@ -119,48 +119,8 @@ $('prod-create').addEventListener('click', async () => {
   rememberProduction(data);
   setStatus($('prod-status'), `Created ${data.name} (${data.isDemo ? 'public demo' : 'private'}). Owner token stored for this browser session only.`, 'ok');
   $('prod-name').value = '';
-  $('export-link').addEventListener('click', async (e) => {
-  e.preventDefault();
-  const revId = $('export-link').dataset.rev;
-  const res = await fetch(`/api/scripts/${revId}/export.csv`, {
-    headers: state.ownerToken ? { authorization: `Bearer ${state.ownerToken}` } : {},
-  });
-  if (!res.ok) {
-    $('room-status').textContent = 'Export denied — owner or room role required.';
-    $('room-status').className = 'status-line error';
-    return;
-  }
-  const blob = await res.blob();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${revId}-calling-sheet.csv`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-});
-
-$('room-create').addEventListener('click', async () => {
-  const revId = $('room-create').dataset.rev;
-  const { ok, data } = await api(
-    'POST',
-    `/api/productions/${state.production.id}/rooms`,
-    { scriptRevisionId: revId, name: 'Rehearsal room' },
-    state.ownerToken,
-  );
-  if (!ok) {
-    $('room-status').textContent = data?.message ?? 'Could not create room.';
-    $('room-status').classList.add('error');
-    return;
-  }
-  sessionStorage.setItem(`room-owner:${data.room.id}`, state.ownerToken ?? '');
-  $('room-status').innerHTML = '';
-  const a = document.createElement('a');
-  a.href = `/room.html?room=${encodeURIComponent(data.room.id)}`;
-  a.textContent = `Open rehearsal room ${data.room.id.slice(-6)}`;
-  $('room-status').append('Room ready — ', a);
-  $('room-status').classList.add('ok');
-});
-
-await loadProductions();
+  await loadProductions();
+  await openProduction(data);
 });
 
 $('csv-import').addEventListener('click', async () => {

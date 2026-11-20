@@ -36,6 +36,7 @@ async function init() {
 }
 
 function connect() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?session=${session}`);
   ws.addEventListener('open', async () => {
     online = true;
@@ -62,6 +63,14 @@ function connect() {
   ws.addEventListener('error', () => ws.close());
 }
 
+// real network drops fire window events even when the socket lingers
+window.addEventListener('offline', () => {
+  online = false;
+  $('conn').textContent = 'offline — actions queue locally';
+  ws?.close();
+});
+window.addEventListener('online', () => connect());
+
 async function refresh() {
   const { ok, data } = await api('GET', `/api/takes/${takeId}/snapshot`, null, session);
   if (!ok) {
@@ -86,7 +95,8 @@ function renderAck() {
     ? `Standby: ${c.id} — ${c.label}`
     : 'No standby in your lane.';
   const sealed = snapshot?.take.status === 'sealed';
-  $('ack-btn').disabled = !c || !online || sealed;
+  // Reachable while offline too: postCommand queues into the outbox.
+  $('ack-btn').disabled = !c || sealed;
   $('ack-btn').textContent = c ? `Acknowledge standby ${c.id}` : 'Acknowledge standby';
 }
 
@@ -96,7 +106,7 @@ function renderReportCues() {
   const keep = sel.value;
   sel.replaceChildren(...mine.map((c) => new Option(`${c.id} — ${c.label}`, c.id)));
   if (keep) sel.value = keep;
-  $('report-btn').disabled = !mine.length || !online;
+  $('report-btn').disabled = !mine.length;
 }
 
 async function postCommand(kind, cueId, payload) {
