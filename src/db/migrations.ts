@@ -102,3 +102,14 @@ MIGRATIONS.push({
     ALTER TABLE productions ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0;
   `,
 });
+MIGRATIONS.push({
+  version: 4,
+  sql: `
+    ALTER TABLE script_revisions ADD COLUMN client_request_id TEXT;
+    ALTER TABLE script_revisions ADD COLUMN source_take_id TEXT;
+    ALTER TABLE script_revisions ADD COLUMN approval_note TEXT;
+    CREATE UNIQUE INDEX idx_revisions_client_request
+      ON script_revisions (production_id, client_request_id)
+      WHERE client_request_id IS NOT NULL;
+  `,
+});

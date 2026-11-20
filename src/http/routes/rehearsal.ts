@@ -62,6 +62,39 @@ export function registerRehearsalRoutes(router: Router, db: DatabaseSync, bus: R
     sendJson(ctx.res, 200, { replay: getReplay(db, take.id) });
   });
 
+  // Side-by-side comparison of two takes in the same room — e.g. the
+  // original take and the corrected second take (FR-12).
+  router.add('GET', '/api/takes/:id/compare', (ctx) => {
+    const a = getTake(db, ctx.params.id!);
+    if (!a) throw new HttpError(404, 'not_found', 'unknown take');
+    const otherId = ctx.query.get('other');
+    const b = otherId ? getTake(db, otherId) : null;
+    if (!b || b.roomId !== a.roomId) {
+      throw new HttpError(422, 'invalid_input', 'other must be a take in the same room');
+    }
+    if (!canReadTake(db, a, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
+    }
+    const ra = getReplay(db, a.id);
+    const rb = getReplay(db, b.id);
+    const summarize = (t: typeof a, r: typeof ra) => ({
+      takeId: t.id,
+      scriptRevisionId: t.scriptRevisionId,
+      status: t.status,
+      epoch: t.epoch,
+      eventCount: r.events.length,
+      observedCount: r.observed.length,
+      unresolvedCount: r.unresolved.length,
+      firstDivergence: r.firstDivergence,
+    });
+    sendJson(ctx.res, 200, {
+      a: summarize(a, ra),
+      b: summarize(b, rb),
+      replayA: ra,
+      replayB: rb,
+    });
+  });
+
   // Materialized room state from a fresh fold of the durable log.
   router.add('GET', '/api/takes/:id/snapshot', (ctx) => {
     const take = getTake(db, ctx.params.id!);

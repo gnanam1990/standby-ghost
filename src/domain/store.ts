@@ -25,6 +25,12 @@ export interface Revision {
   title: string;
   digest: string;
   createdAt: string;
+  /** Idempotency key supplied by the requesting client (T-012). */
+  clientRequestId: string | null;
+  /** The take whose recovery review produced this revision, when set. */
+  sourceTakeId: string | null;
+  /** The recorded review note; exported rows must match it (T-012). */
+  approvalNote: string | null;
   cues: CueDef[];
   callingOrder: string[];
 }
@@ -38,6 +44,9 @@ interface RevisionRow {
   digest: string;
   source_csv: string;
   created_at: string;
+  client_request_id: string | null;
+  source_take_id: string | null;
+  approval_note: string | null;
 }
 
 interface CueRow {
@@ -105,6 +114,9 @@ function loadRevision(db: DatabaseSync, row: RevisionRow): Revision {
     title: row.title,
     digest: row.digest,
     createdAt: row.created_at,
+    clientRequestId: row.client_request_id,
+    sourceTakeId: row.source_take_id,
+    approvalNote: row.approval_note,
     cues,
     callingOrder: topoOrder(cues),
   };
@@ -125,18 +137,30 @@ export function listRevisions(db: DatabaseSync, productionId: string): Revision[
 }
 
 export type ImportOutcome =
-  | { ok: true; revision: Revision }
+  | { ok: true; revision: Revision; existing: boolean }
   | { ok: false; errors: ImportError[] };
+
+export interface ImportOptions {
+  /** Retry-safe idempotency key; a repeat returns the same revision (T-012). */
+  clientRequestId?: string;
+  /** Provenance: the take whose recovery review produced this revision. */
+  sourceTakeId?: string;
+  /** The crew's recorded approval note for the change. */
+  approvalNote?: string;
+}
 
 /**
  * Parse, validate and persist a new immutable script revision. On rejection
  * nothing is written, so the previous head revision is retained (T-002).
+ * When a clientRequestId was already accepted, the original revision is
+ * returned instead of inserting a duplicate (T-012).
  */
 export function importScript(
   db: DatabaseSync,
   productionId: string,
   csvText: string,
   title: string,
+  options: ImportOptions = {},
 ): ImportOutcome {
   const parsed = parseCsv(csvText);
   if (!parsed.ok) return { ok: false, errors: parsed.errors };
@@ -144,6 +168,14 @@ export function importScript(
   if (errors.length) return { ok: false, errors };
 
   return withTransaction(db, () => {
+    if (options.clientRequestId) {
+      const prior = db
+        .prepare(
+          'SELECT * FROM script_revisions WHERE production_id = ? AND client_request_id = ?',
+        )
+        .get(productionId, options.clientRequestId) as RevisionRow | undefined;
+      if (prior) return { ok: true as const, revision: loadRevision(db, prior), existing: true };
+    }
     const head = db
       .prepare(
         'SELECT id, seq FROM script_revisions WHERE production_id = ? ORDER BY seq DESC LIMIT 1',
@@ -153,8 +185,9 @@ export function importScript(
     const seq = (head?.seq ?? 0) + 1;
     db.prepare(
       `INSERT INTO script_revisions
-        (id, production_id, parent_id, seq, title, digest, source_csv, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, production_id, parent_id, seq, title, digest, source_csv, created_at,
+         client_request_id, source_take_id, approval_note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       productionId,
@@ -164,6 +197,9 @@ export function importScript(
       digestCues(cues),
       csvText,
       new Date().toISOString(),
+      options.clientRequestId ?? null,
+      options.sourceTakeId ?? null,
+      options.approvalNote ?? null,
     );
     const insert = db.prepare(
       `INSERT INTO cues (revision_id, cue_id, lane, label, deps_json, trigger_kind, position)
@@ -172,7 +208,7 @@ export function importScript(
     for (const cue of cues) {
       insert.run(id, cue.id, cue.lane, cue.label, JSON.stringify(cue.deps), cue.trigger, cue.position);
     }
-    return { ok: true as const, revision: getRevision(db, id)! };
+    return { ok: true as const, revision: getRevision(db, id)!, existing: false };
   });
 }
 

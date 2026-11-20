@@ -60,24 +60,54 @@ export function registerScriptRoutes(router: Router, db: DatabaseSync): void {
   });
 
   // Import a UTF-8 CSV scene as a new immutable revision. Owner only.
+  // clientRequestId makes revision creation retry-safe (T-012); a repeat
+  // returns the already-recorded revision with existing: true.
   router.add('POST', '/api/productions/:id/scripts', (ctx) => {
     const prod = getProduction(db, ctx.params.id!);
     if (!prod) throw new HttpError(404, 'not_found', 'unknown production');
     requireOwner(db, prod.id, bearer(ctx.req));
-    const body = (ctx.body ?? {}) as { csv?: string; title?: string };
+    const body = (ctx.body ?? {}) as {
+      csv?: string;
+      title?: string;
+      clientRequestId?: string;
+      sourceTakeId?: string;
+      approvalNote?: string;
+    };
     if (typeof body.csv !== 'string' || body.csv.length === 0) {
       throw new HttpError(422, 'invalid_input', 'csv field is required');
     }
     if (body.csv.length > 256 * 1024) {
       throw new HttpError(422, 'invalid_input', 'csv exceeds 256 KiB');
     }
-    const outcome = importScript(db, prod.id, body.csv, body.title?.trim() || 'Untitled scene');
+    if (body.clientRequestId !== undefined && (typeof body.clientRequestId !== 'string' || body.clientRequestId.length > 120)) {
+      throw new HttpError(422, 'invalid_input', 'clientRequestId must be a string (max 120 chars)');
+    }
+    if (body.approvalNote !== undefined && (typeof body.approvalNote !== 'string' || body.approvalNote.length > 500)) {
+      throw new HttpError(422, 'invalid_input', 'approvalNote must be a string (max 500 chars)');
+    }
+    if (body.sourceTakeId !== undefined) {
+      const take = db
+        .prepare(
+          'SELECT t.id FROM takes t JOIN rooms r ON r.id = t.room_id WHERE t.id = ? AND r.production_id = ?',
+        )
+        .get(body.sourceTakeId, prod.id) as { id: string } | undefined;
+      if (!take) throw new HttpError(422, 'invalid_input', 'sourceTakeId is not a take in this production');
+    }
+    const options = {
+      ...(body.clientRequestId !== undefined ? { clientRequestId: body.clientRequestId } : {}),
+      ...(body.sourceTakeId !== undefined ? { sourceTakeId: body.sourceTakeId } : {}),
+      ...(body.approvalNote !== undefined ? { approvalNote: body.approvalNote.trim() } : {}),
+    };
+    const outcome = importScript(db, prod.id, body.csv, body.title?.trim() || 'Untitled scene', options);
     if (!outcome.ok) {
       throw new HttpError(422, 'script_rejected', 'script failed validation', {
         errors: outcome.errors,
       });
     }
-    sendJson(ctx.res, 201, { revision: outcome.revision });
+    sendJson(ctx.res, outcome.existing ? 200 : 201, {
+      revision: outcome.revision,
+      existing: outcome.existing,
+    });
   });
 
   router.add('GET', '/api/scripts/:id', (ctx) => {
