@@ -13,6 +13,7 @@ import {
   type Role,
 } from '../../domain/rooms.js';
 import { createTake, getTake, listTakes } from '../../domain/takes.js';
+import type { RoomBus } from '../../bus.js';
 
 function roomOr404(db: DatabaseSync, id: string) {
   const room = getRoom(db, id);
@@ -37,7 +38,7 @@ function requireMember(
   return member;
 }
 
-export function registerRoomRoutes(router: Router, db: DatabaseSync): void {
+export function registerRoomRoutes(router: Router, db: DatabaseSync, bus: RoomBus): void {
   router.add('POST', '/api/productions/:id/rooms', (ctx) => {
     const productionId = ctx.params.id!;
     const room = (() => {
@@ -99,7 +100,9 @@ export function registerRoomRoutes(router: Router, db: DatabaseSync): void {
     if (!isOwner(db, room.productionId, bearer(ctx.req))) {
       throw new HttpError(403, 'forbidden', 'owner credentials required');
     }
-    sendJson(ctx.res, 200, { invitation: revokeInvitation(db, room.id, ctx.params.invId!) });
+    const invitation = revokeInvitation(db, room.id, ctx.params.invId!);
+    bus.publish({ type: 'roster', roomId: room.id });
+    sendJson(ctx.res, 200, { invitation });
   });
 
   router.add('POST', '/api/rooms/:id/members/:memberId/revoke', (ctx) => {
@@ -107,7 +110,9 @@ export function registerRoomRoutes(router: Router, db: DatabaseSync): void {
     if (!isOwner(db, room.productionId, bearer(ctx.req))) {
       throw new HttpError(403, 'forbidden', 'owner credentials required');
     }
-    sendJson(ctx.res, 200, { member: revokeMember(db, room.id, ctx.params.memberId!) });
+    const member = revokeMember(db, room.id, ctx.params.memberId!);
+    bus.publish({ type: 'roster', roomId: room.id });
+    sendJson(ctx.res, 200, { member });
   });
 
   // Redeem an invitation link. Single use; the session token is the only
@@ -119,6 +124,7 @@ export function registerRoomRoutes(router: Router, db: DatabaseSync): void {
     if (!result.ok) {
       throw new HttpError(result.status, result.code, result.message);
     }
+    bus.publish({ type: 'roster', roomId: result.member.roomId });
     sendJson(ctx.res, 201, {
       member: result.member,
       sessionToken: result.sessionToken,
@@ -132,6 +138,7 @@ export function registerRoomRoutes(router: Router, db: DatabaseSync): void {
     const room = roomOr404(db, ctx.params.id!);
     const member = requireMember(db, bearer(ctx.req), room.id, ['caller']);
     const take = createTake(db, room.id, room.scriptRevisionId, member);
+    bus.publish({ type: 'take', roomId: room.id, takeId: take.id });
     sendJson(ctx.res, 201, { take });
   });
 

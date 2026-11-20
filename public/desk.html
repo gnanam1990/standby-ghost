@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Desk — Standby Ghost</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header>
+  <h1>Standby Ghost — <span id="desk-role">desk</span></h1>
+  <p id="desk-sub"></p>
+</header>
+<main>
+  <section aria-labelledby="ack-h">
+    <h2 id="ack-h">Standby acknowledgment</h2>
+    <p id="conn" class="muted small">offline</p>
+    <p id="standby-line">No standby in your lane.</p>
+    <button id="ack-btn" class="primary ack-big" disabled>Acknowledge standby</button>
+    <p class="status-line" id="ack-status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section aria-labelledby="report-h">
+    <h2 id="report-h">Report rehearsal action</h2>
+    <p class="muted small">Testimony of what actually fired on your desk — independent of caller GO.</p>
+    <label for="report-cue">Cue (your lane)</label>
+    <select id="report-cue"></select>
+    <label for="report-obs">Observation</label>
+    <select id="report-obs">
+      <option value="fired">fired</option>
+      <option value="fired_early">fired early</option>
+      <option value="fired_late">fired late</option>
+      <option value="failed">failed to fire</option>
+    </select>
+    <label for="report-reason">Reason / note</label>
+    <input id="report-reason" type="text" maxlength="200">
+    <div class="row" style="margin-top:.5rem">
+      <button id="report-btn">Report action</button>
+    </div>
+    <p class="status-line" id="report-status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section aria-labelledby="outbox-h">
+    <h2 id="outbox-h">Outbox</h2>
+    <ul class="plain" id="outbox-list"></ul>
+  </section>
+
+  <section aria-labelledby="log-h">
+    <h2 id="log-h">Event log</h2>
+    <table id="event-table">
+      <thead><tr><th>Seq</th><th>Epoch</th><th>Actor</th><th>Kind</th><th>Cue</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+<script type="module" src="/desk.js"></script>
+</body>
+</html>

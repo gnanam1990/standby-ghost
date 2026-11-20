@@ -82,9 +82,15 @@ function renderTakes(takes) {
   for (const t of takes) {
     const li = document.createElement('li');
     li.textContent = `Take ${t.id.slice(-6)} · ${t.status} · epoch ${t.epoch} · seq ${t.nextSeq - 1} `;
+    const role = JSON.parse(localStorage.getItem(`sg-member:${roomId}`) ?? 'null')?.role;
     const open = document.createElement('a');
-    open.href = `/caller.html?take=${encodeURIComponent(t.id)}`;
-    open.textContent = 'Open caller console';
+    if (role === 'caller') {
+      open.href = `/caller.html?take=${encodeURIComponent(t.id)}`;
+      open.textContent = 'Open caller console';
+    } else {
+      open.href = `/desk.html?take=${encodeURIComponent(t.id)}`;
+      open.textContent = 'Open desk';
+    }
     li.append(open);
     list.append(li);
   }

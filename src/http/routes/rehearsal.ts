@@ -3,8 +3,9 @@ import { HttpError, Router, bearer, sendJson } from '../router.js';
 import { memberBySession, roomRoster } from '../../domain/rooms.js';
 import { getTake } from '../../domain/takes.js';
 import { applyCommand, foldTake, listEvents, loadCues, type CommandInput } from '../../domain/engine.js';
+import type { RoomBus } from '../../bus.js';
 
-export function registerRehearsalRoutes(router: Router, db: DatabaseSync): void {
+export function registerRehearsalRoutes(router: Router, db: DatabaseSync, bus: RoomBus): void {
   router.add('POST', '/api/takes/:id/commands', (ctx) => {
     const take = getTake(db, ctx.params.id!);
     if (!take) throw new HttpError(404, 'not_found', 'unknown take');
@@ -21,6 +22,9 @@ export function registerRehearsalRoutes(router: Router, db: DatabaseSync): void 
       kind: body.kind,
       payload: (body.payload ?? {}) as Record<string, unknown>,
     });
+    if (!result.replayed) {
+      bus.publish({ type: 'event', roomId: take.roomId, takeId: take.id, event: result.event });
+    }
     sendJson(ctx.res, result.status, {
       event: result.event,
       replayed: result.replayed,
