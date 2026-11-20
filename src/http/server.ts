@@ -6,6 +6,7 @@ import type { AppConfig } from '../config.js';
 import { HttpError, readBody, Router, sendError, sendJson } from './router.js';
 import { registerScriptRoutes } from './routes/scripts.js';
 import { registerRoomRoutes } from './routes/rooms.js';
+import { registerRehearsalRoutes } from './routes/rehearsal.js';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -46,6 +47,7 @@ export async function startServer(
   const router = new Router();
   registerScriptRoutes(router, db);
   registerRoomRoutes(router, db);
+  registerRehearsalRoutes(router, db);
 
   const server = http.createServer(async (req, res) => {
     try {
