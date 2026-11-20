@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rehearsal room — Standby Ghost</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header>
+  <h1>Standby Ghost</h1>
+  <p id="room-sub">Rehearsal room</p>
+</header>
+<main>
+  <section aria-labelledby="me-h">
+    <h2 id="me-h">Your seat</h2>
+    <p id="me-line">Not joined on this browser.</p>
+  </section>
+
+  <section aria-labelledby="roster-h">
+    <h2 id="roster-h">Roster</h2>
+    <table id="roster-table">
+      <thead><tr><th>Name</th><th>Role</th><th>Gen</th><th>Status</th><th class="owner-only">Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <h3>Open invitations</h3>
+    <ul class="plain" id="invite-list"></ul>
+  </section>
+
+  <section aria-labelledby="invite-h" id="invite-panel" class="owner-only" hidden>
+    <h2 id="invite-h">Issue invitation</h2>
+    <div class="row">
+      <div>
+        <label for="inv-role">Role</label>
+        <select id="inv-role">
+          <option value="caller">caller</option>
+          <option value="sound">sound</option>
+          <option value="lights">lights</option>
+        </select>
+      </div>
+      <div>
+        <label for="inv-name">Crew name</label>
+        <input id="inv-name" type="text" maxlength="60">
+      </div>
+      <div>
+        <label for="inv-ttl">Expires (minutes)</label>
+        <input id="inv-ttl" type="number" min="1" max="1440" value="60">
+      </div>
+      <button id="inv-create" class="primary">Create link</button>
+    </div>
+    <p class="status-line" id="inv-status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section aria-labelledby="takes-h">
+    <h2 id="takes-h">Takes</h2>
+    <ul class="plain" id="take-list"></ul>
+    <button id="take-start" class="primary" hidden>Start take</button>
+    <p class="status-line" id="take-status" role="status" aria-live="polite"></p>
+  </section>
+</main>
+<script type="module" src="/room.js"></script>
+</body>
+</html>

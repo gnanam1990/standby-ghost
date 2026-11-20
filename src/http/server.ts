@@ -5,6 +5,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { AppConfig } from '../config.js';
 import { HttpError, readBody, Router, sendError, sendJson } from './router.js';
 import { registerScriptRoutes } from './routes/scripts.js';
+import { registerRoomRoutes } from './routes/rooms.js';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -26,6 +27,8 @@ function serveStatic(staticDir: string, req: http.IncomingMessage, res: http.Ser
   const url = new URL(req.url ?? '/', 'http://localhost');
   let rel = decodeURIComponent(url.pathname);
   if (rel === '/') rel = '/index.html';
+  // /join/<token> serves the join page; the token stays out of query logs
+  if (rel.startsWith('/join/')) rel = '/join.html';
   const file = path.normalize(path.join(staticDir, rel));
   if (!file.startsWith(path.normalize(staticDir + path.sep)) && file !== path.normalize(staticDir)) {
     return false;
@@ -42,6 +45,7 @@ export async function startServer(
 ): Promise<ServerHandle> {
   const router = new Router();
   registerScriptRoutes(router, db);
+  registerRoomRoutes(router, db);
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -71,6 +75,10 @@ export async function startServer(
     } catch (err) {
       if (res.writableEnded) return;
       if (err instanceof HttpError) sendError(res, err);
+      else if (err instanceof Error && 'status' in err && 'code' in err) {
+        const e = err as { status: number; code: string; message: string; details?: unknown };
+        sendError(res, new HttpError(e.status, e.code, e.message, e.details));
+      }
       else {
         console.error('[server] unhandled error', err);
         sendJson(res, 500, { error: 'internal', message: 'internal server error' });

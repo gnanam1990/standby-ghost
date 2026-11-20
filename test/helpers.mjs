@@ -34,12 +34,12 @@ export async function spawnApp({ dbPath } = {}) {
 
 export async function api(base, method, p, body, token) {
   const headers = {};
-  if (body !== undefined) headers['content-type'] = 'application/json';
+  if (body != null) headers['content-type'] = 'application/json';
   if (token) headers['authorization'] = `Bearer ${token}`;
   const res = await fetch(`${base}${p}`, {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body == null ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
   let data = null;

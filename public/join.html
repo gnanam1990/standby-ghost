@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Join rehearsal — Standby Ghost</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header>
+  <h1>Standby Ghost</h1>
+  <p>Join a rehearsal room</p>
+</header>
+<main>
+  <section aria-labelledby="join-h">
+    <h2 id="join-h">Redeem invitation</h2>
+    <label for="join-name">Your name (visible to the crew)</label>
+    <input id="join-name" type="text" maxlength="60" autocomplete="name">
+    <div class="row" style="margin-top:.75rem">
+      <button id="join-btn" class="primary">Join room</button>
+    </div>
+    <p class="status-line" id="join-status" role="status" aria-live="polite"></p>
+  </section>
+  <section id="joined" hidden>
+    <h2 id="joined-h">Joined</h2>
+    <p id="joined-info"></p>
+    <a id="room-link" href="#">Open your desk</a>
+  </section>
+</main>
+<script type="module" src="/join.js"></script>
+</body>
+</html>

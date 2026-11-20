@@ -76,6 +76,7 @@ async function previewRevision(id) {
   });
   $('export-link').href = `/api/scripts/${id}/export.csv`;
   $('sheet-link').href = `/sheet.html?rev=${encodeURIComponent(id)}`;
+  $('room-create').dataset.rev = id;
   $('preview-section').scrollIntoView({ block: 'nearest' });
 }
 
@@ -87,7 +88,28 @@ $('prod-create').addEventListener('click', async () => {
   sessionStorage.setItem(`owner:${data.id}`, data.ownerToken);
   setStatus($('prod-status'), `Created ${data.name}. Owner token stored for this browser session only.`, 'ok');
   $('prod-name').value = '';
-  await loadProductions();
+  $('room-create').addEventListener('click', async () => {
+  const revId = $('room-create').dataset.rev;
+  const { ok, data } = await api(
+    'POST',
+    `/api/productions/${state.production.id}/rooms`,
+    { scriptRevisionId: revId, name: 'Rehearsal room' },
+    state.ownerToken,
+  );
+  if (!ok) {
+    $('room-status').textContent = data?.message ?? 'Could not create room.';
+    $('room-status').classList.add('error');
+    return;
+  }
+  $('room-status').innerHTML = '';
+  const a = document.createElement('a');
+  a.href = `/room.html?room=${encodeURIComponent(data.room.id)}`;
+  a.textContent = `Open rehearsal room ${data.room.id.slice(-6)}`;
+  $('room-status').append('Room ready — ', a);
+  $('room-status').classList.add('ok');
+});
+
+await loadProductions();
 });
 
 $('csv-import').addEventListener('click', async () => {
@@ -116,6 +138,27 @@ $('csv-import').addEventListener('click', async () => {
   $('csv-file').value = '';
   await loadRevisions();
   await previewRevision(data.revision.id);
+});
+
+$('room-create').addEventListener('click', async () => {
+  const revId = $('room-create').dataset.rev;
+  const { ok, data } = await api(
+    'POST',
+    `/api/productions/${state.production.id}/rooms`,
+    { scriptRevisionId: revId, name: 'Rehearsal room' },
+    state.ownerToken,
+  );
+  if (!ok) {
+    $('room-status').textContent = data?.message ?? 'Could not create room.';
+    $('room-status').classList.add('error');
+    return;
+  }
+  $('room-status').innerHTML = '';
+  const a = document.createElement('a');
+  a.href = `/room.html?room=${encodeURIComponent(data.room.id)}`;
+  a.textContent = `Open rehearsal room ${data.room.id.slice(-6)}`;
+  $('room-status').append('Room ready — ', a);
+  $('room-status').classList.add('ok');
 });
 
 await loadProductions();
