@@ -65,12 +65,16 @@ test('keyboard-only hold/resume at 375px; reduced-motion divergence parity', asy
   await caller.goto(`/caller.html?take=${take.id}`);
   await caller.evaluate(() => { document.documentElement.style.zoom = '2'; });
 
-  // walk standby → entrance with real buttons, all keyboard-driven
+  // walk standby → entrance with real buttons, all keyboard-driven.
+  // Each wait observes post-refresh DOM, proving the console's expectedSeq
+  // cursor has caught up before the next command is issued.
   const e1 = caller.locator('#cue-table tr', { hasText: 'E1' });
   await e1.getByRole('button', { name: 'Standby' }).focus();
   await caller.keyboard.press('Enter');
+  await expect(e1).toContainText('standby');
   await e1.getByRole('button', { name: 'Entrance' }).focus();
   await caller.keyboard.press('Enter');
+  await expect(e1).toContainText('observed');
 
   // hold via keyboard: focus hold, Enter, type reason, Enter on confirm
   await caller.locator('#hold-btn').focus();
@@ -81,7 +85,8 @@ test('keyboard-only hold/resume at 375px; reduced-motion divergence parity', asy
   await caller.keyboard.press('Enter');
   await expect(caller.locator('#action-status')).toContainText('HOLD');
 
-  // resume via keyboard
+  // resume via keyboard — the held-state refresh must populate the
+  // destination select (proving expectedSeq caught up) before we send
   await caller.selectOption('#resume-dest', 'S1');
   await caller.locator('#resume-reason').pressSequentially('reset to the sound standby');
   await caller.locator('#resume-confirm').focus();
