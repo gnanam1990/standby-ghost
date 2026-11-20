@@ -1,0 +1,6 @@
+cue_id,lane,label,after,trigger
+E1,stage,Mira enters with the returning letter,-,human
+S1,sound,Letter chime motif,E1,caller
+L1,lights,Warm front light up,S1,caller
+L2,lights,Sidelight on doorway,L1,caller
+S2,sound,Low underscore swell,L1,caller

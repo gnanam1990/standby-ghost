@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Standby Ghost</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header>
+  <h1>Standby Ghost</h1>
+  <p>Rehearse the missed entrance. Find the first wrong cue. Hand the crew a corrected sheet.</p>
+</header>
+<main>
+  <section aria-labelledby="prod-h">
+    <h2 id="prod-h">Productions</h2>
+    <div class="row">
+      <div>
+        <label for="prod-name">New production name</label>
+        <input id="prod-name" type="text" maxlength="120" autocomplete="off">
+      </div>
+      <button id="prod-create" class="primary">Create production</button>
+    </div>
+    <p class="status-line" id="prod-status" role="status" aria-live="polite"></p>
+    <ul class="plain" id="prod-list"></ul>
+  </section>
+
+  <section aria-labelledby="import-h" id="import-section" hidden>
+    <h2 id="import-h">Script revisions — <span id="import-prod-name"></span></h2>
+    <ul class="plain" id="rev-list"></ul>
+    <h3>Import a scene (CSV: cue_id,lane,label,after,trigger)</h3>
+    <label for="csv-title">Revision title</label>
+    <input id="csv-title" type="text" maxlength="120">
+    <label for="csv-file">CSV file</label>
+    <input id="csv-file" type="file" accept=".csv,text/csv">
+    <label for="csv-text">or paste CSV</label>
+    <textarea id="csv-text" spellcheck="false"></textarea>
+    <div class="row" style="margin-top:.5rem">
+      <button id="csv-import" class="primary">Import as new revision</button>
+    </div>
+    <p class="status-line" id="csv-status" role="status" aria-live="polite"></p>
+    <ul class="error-list" id="csv-errors"></ul>
+  </section>
+
+  <section aria-labelledby="preview-h" id="preview-section" hidden>
+    <h2 id="preview-h">Calling order preview</h2>
+    <p class="muted small" id="preview-meta"></p>
+    <table id="preview-table">
+      <thead><tr><th>#</th><th>Cue</th><th>Lane</th><th>Trigger</th><th>After</th><th>Label</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row" style="margin-top:.75rem">
+      <a id="export-link" href="#" download>Download calling sheet (CSV)</a>
+      <a id="sheet-link" href="#" target="_blank" rel="noopener">Printable sheet</a>
+    </div>
+  </section>
+</main>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
