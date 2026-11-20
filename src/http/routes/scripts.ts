@@ -10,6 +10,7 @@ import {
   listRevisions,
   revisionChanges,
 } from '../../domain/store.js';
+import { canReadProduction } from '../../domain/authz.js';
 import { exportCsv, SCRIPT_SCHEMA_VERSION } from '../../domain/script.js';
 
 function requireOwner(db: DatabaseSync, productionId: string, token: string | null): void {
@@ -20,25 +21,30 @@ function requireOwner(db: DatabaseSync, productionId: string, token: string | nu
 
 export function registerScriptRoutes(router: Router, db: DatabaseSync): void {
   router.add('POST', '/api/productions', (ctx) => {
-    const body = (ctx.body ?? {}) as { name?: string };
+    const body = (ctx.body ?? {}) as { name?: string; isDemo?: boolean };
     if (!body.name || typeof body.name !== 'string' || body.name.length > 120) {
       throw new HttpError(422, 'invalid_input', 'name is required (max 120 chars)');
     }
-    const created = createProduction(db, body.name.trim());
+    const created = createProduction(db, body.name.trim(), !!body.isDemo);
     sendJson(ctx.res, 201, {
       id: created.id,
       name: created.name,
+      isDemo: created.isDemo,
       ownerToken: created.ownerToken,
     });
   });
 
+  // Public directory exposes only explicitly flagged demo productions.
   router.add('GET', '/api/productions', (ctx) => {
-    sendJson(ctx.res, 200, { productions: listProductions(db) });
+    sendJson(ctx.res, 200, { productions: listProductions(db, true) });
   });
 
   router.add('GET', '/api/productions/:id', (ctx) => {
     const prod = getProduction(db, ctx.params.id!);
     if (!prod) throw new HttpError(404, 'not_found', 'unknown production');
+    if (!canReadProduction(db, prod.id, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
+    }
     sendJson(ctx.res, 200, {
       production: prod,
       revisions: listRevisions(db, prod.id).map((r) => ({
@@ -77,6 +83,9 @@ export function registerScriptRoutes(router: Router, db: DatabaseSync): void {
   router.add('GET', '/api/scripts/:id', (ctx) => {
     const rev = getRevision(db, ctx.params.id!);
     if (!rev) throw new HttpError(404, 'not_found', 'unknown script revision');
+    if (!canReadProduction(db, rev.productionId, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
+    }
     sendJson(ctx.res, 200, {
       revision: rev,
       changes: revisionChanges(db, rev),
@@ -87,6 +96,9 @@ export function registerScriptRoutes(router: Router, db: DatabaseSync): void {
   router.add('GET', '/api/scripts/:id/export.csv', (ctx) => {
     const rev = getRevision(db, ctx.params.id!);
     if (!rev) throw new HttpError(404, 'not_found', 'unknown script revision');
+    if (!canReadProduction(db, rev.productionId, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
+    }
     const csv = exportCsv(rev.cues);
     ctx.res.writeHead(200, {
       'content-type': 'text/csv; charset=utf-8',

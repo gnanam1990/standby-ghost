@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { HttpError, Router, bearer, sendJson } from '../router.js';
 import { memberBySession, roomRoster } from '../../domain/rooms.js';
+import { canReadTake, requireMembership } from '../../domain/authz.js';
 import { getTake } from '../../domain/takes.js';
 import { applyCommand, foldTake, listEvents, loadCues, type CommandInput } from '../../domain/engine.js';
 import type { RoomBus } from '../../bus.js';
@@ -9,8 +10,8 @@ export function registerRehearsalRoutes(router: Router, db: DatabaseSync, bus: R
   router.add('POST', '/api/takes/:id/commands', (ctx) => {
     const take = getTake(db, ctx.params.id!);
     if (!take) throw new HttpError(404, 'not_found', 'unknown take');
-    const member = memberBySession(db, bearer(ctx.req));
-    if (!member || member.roomId !== take.roomId) {
+    const member = requireMembership(db, bearer(ctx.req), take.roomId);
+    if (!member) {
       throw new HttpError(403, 'forbidden', 'a live role session is required');
     }
     const body = (ctx.body ?? {}) as CommandInput;
@@ -35,9 +36,8 @@ export function registerRehearsalRoutes(router: Router, db: DatabaseSync, bus: R
   router.add('GET', '/api/takes/:id/events', (ctx) => {
     const take = getTake(db, ctx.params.id!);
     if (!take) throw new HttpError(404, 'not_found', 'unknown take');
-    const member = memberBySession(db, bearer(ctx.req));
-    if (!member || member.roomId !== take.roomId) {
-      throw new HttpError(403, 'forbidden', 'a live role session is required');
+    if (!canReadTake(db, take, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
     }
     const after = Math.max(0, Number(ctx.query.get('after') ?? 0) || 0);
     sendJson(ctx.res, 200, {
@@ -56,8 +56,8 @@ export function registerRehearsalRoutes(router: Router, db: DatabaseSync, bus: R
     const take = getTake(db, ctx.params.id!);
     if (!take) throw new HttpError(404, 'not_found', 'unknown take');
     const member = memberBySession(db, bearer(ctx.req));
-    if (!member || member.roomId !== take.roomId) {
-      throw new HttpError(403, 'forbidden', 'a live role session is required');
+    if (!canReadTake(db, take, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
     }
     const cues = loadCues(db, take.scriptRevisionId);
     const { cueStates, status, epoch } = foldTake(cues, listEvents(db, take.id));

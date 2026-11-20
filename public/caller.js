@@ -6,18 +6,20 @@ let session = null;
 let snapshot = null;
 let lastSeq = 0;
 
+import { sessionForTake } from '/api.js';
+
 async function init() {
-  const { ok, data } = await api('GET', `/api/takes/${takeId}`);
-  if (!ok) {
-    $('take-sub').textContent = `Take unavailable: ${data?.message ?? 'error'}`;
+  const found = await sessionForTake(takeId);
+  if (!found) {
+    $('take-sub').textContent = 'Take unavailable or credentials required.';
     return;
   }
-  session = localStorage.getItem(`sg-session:${data.take.roomId}`);
+  session = found.session;
   if (!session) {
     $('take-sub').textContent = 'Join this room from an invitation link first.';
     return;
   }
-  $('take-sub').textContent = `Take ${takeId.slice(-6)} · room ${data.take.roomId.slice(-6)}`;
+  $('take-sub').textContent = `Take ${takeId.slice(-6)} · room ${found.take.roomId.slice(-6)}`;
   await refresh();
   setInterval(refresh, 1500);
 }

@@ -14,6 +14,7 @@ import {
 } from '../../domain/rooms.js';
 import { createTake, getTake, listTakes } from '../../domain/takes.js';
 import type { RoomBus } from '../../bus.js';
+import { canReadRoom, canReadTake } from '../../domain/authz.js';
 
 function roomOr404(db: DatabaseSync, id: string) {
   const room = getRoom(db, id);
@@ -56,6 +57,9 @@ export function registerRoomRoutes(router: Router, db: DatabaseSync, bus: RoomBu
 
   router.add('GET', '/api/rooms/:id', (ctx) => {
     const room = roomOr404(db, ctx.params.id!);
+    if (!canReadRoom(db, room.id, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
+    }
     const rev = db
       .prepare('SELECT id, seq, title, digest FROM script_revisions WHERE id = ?')
       .get(room.scriptRevisionId) as { id: string; seq: number; title: string; digest: string };
@@ -71,6 +75,9 @@ export function registerRoomRoutes(router: Router, db: DatabaseSync, bus: RoomBu
 
   router.add('GET', '/api/rooms/:id/roster', (ctx) => {
     const room = roomOr404(db, ctx.params.id!);
+    if (!canReadRoom(db, room.id, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
+    }
     sendJson(ctx.res, 200, { roster: roomRoster(db, room.id) });
   });
 
@@ -145,6 +152,9 @@ export function registerRoomRoutes(router: Router, db: DatabaseSync, bus: RoomBu
   router.add('GET', '/api/takes/:id', (ctx) => {
     const take = getTake(db, ctx.params.id!);
     if (!take) throw new HttpError(404, 'not_found', 'unknown take');
+    if (!canReadTake(db, take, bearer(ctx.req))) {
+      throw new HttpError(403, 'forbidden', 'owner or authorized room role required');
+    }
     const me = memberBySession(db, bearer(ctx.req));
     sendJson(ctx.res, 200, { take, me: me && me.roomId === take.roomId ? me : null });
   });

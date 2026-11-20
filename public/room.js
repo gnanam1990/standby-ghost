@@ -4,17 +4,16 @@ const $ = (id) => document.getElementById(id);
 const roomId = new URLSearchParams(location.search).get('room');
 const session = localStorage.getItem(`sg-session:${roomId}`);
 const origin = location.origin;
-let ownerToken = null; // resolved after first fetch via room.productionId
+let ownerToken = sessionStorage.getItem(`room-owner:${roomId}`) || null;
 
 let lastRosterJson = '';
 
 async function refresh() {
-  const { ok, data } = await api('GET', `/api/rooms/${roomId}`, null, session);
+  const { ok, data } = await api('GET', `/api/rooms/${roomId}`, null, session ?? sessionStorage.getItem(`room-owner:${roomId}`));
   if (!ok) {
     $('room-sub').textContent = `Room unavailable: ${data?.message ?? 'error'}`;
     return;
   }
-  ownerToken = sessionStorage.getItem(`owner:${data.room.productionId}`);
   $('room-sub').textContent = `${data.room.name} · revision R${data.scriptRevision.seq} "${data.scriptRevision.title}"`;
 
   $('me-line').textContent = data.me
@@ -81,6 +80,7 @@ function renderTakes(takes) {
   list.replaceChildren();
   for (const t of takes) {
     const li = document.createElement('li');
+    localStorage.setItem(`sg-take-room:${t.id}`, roomId);
     li.textContent = `Take ${t.id.slice(-6)} · ${t.status} · epoch ${t.epoch} · seq ${t.nextSeq - 1} `;
     const role = JSON.parse(localStorage.getItem(`sg-member:${roomId}`) ?? 'null')?.role;
     const open = document.createElement('a');

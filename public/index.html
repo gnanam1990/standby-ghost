@@ -19,6 +19,13 @@
         <label for="prod-name">New production name</label>
         <input id="prod-name" type="text" maxlength="120" autocomplete="off">
       </div>
+      <div>
+        <label for="prod-demo">Visibility</label>
+        <select id="prod-demo">
+          <option value="private" selected>private (owner + room roles)</option>
+          <option value="demo">public demo (judge-readable)</option>
+        </select>
+      </div>
       <button id="prod-create" class="primary">Create production</button>
     </div>
     <p class="status-line" id="prod-status" role="status" aria-live="polite"></p>

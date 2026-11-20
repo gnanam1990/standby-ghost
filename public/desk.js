@@ -1,4 +1,4 @@
-import { api } from '/api.js';
+import { api, sessionForTake } from '/api.js';
 import { outboxDecision, loadOutbox, saveOutbox, upsert } from '/outbox.js';
 
 const $ = (id) => document.getElementById(id);
@@ -17,13 +17,13 @@ function save() {
 }
 
 async function init() {
-  const { ok, data } = await api('GET', `/api/takes/${takeId}`);
-  if (!ok) {
-    $('desk-sub').textContent = `Take unavailable: ${data?.message ?? 'error'}`;
+  const found = await sessionForTake(takeId);
+  if (!found) {
+    $('desk-sub').textContent = 'Take unavailable or credentials required.';
     return;
   }
-  session = localStorage.getItem(`sg-session:${data.take.roomId}`);
-  me = JSON.parse(localStorage.getItem(`sg-member:${data.take.roomId}`) ?? 'null');
+  session = found.session;
+  me = JSON.parse(localStorage.getItem(`sg-member:${found.roomId}`) ?? 'null');
   if (!session || !me) {
     $('desk-sub').textContent = 'Join this room from an invitation link first.';
     return;

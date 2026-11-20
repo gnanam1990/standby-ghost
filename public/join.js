@@ -18,6 +18,11 @@ $('join-btn').addEventListener('click', async () => {
   }
   localStorage.setItem(`sg-session:${data.roomId}`, data.sessionToken);
   localStorage.setItem(`sg-member:${data.roomId}`, JSON.stringify(data.member));
+  const rooms = JSON.parse(localStorage.getItem('sg-rooms') ?? '[]');
+  if (!rooms.includes(data.roomId)) {
+    rooms.push(data.roomId);
+    localStorage.setItem('sg-rooms', JSON.stringify(rooms));
+  }
   $('join-status').textContent = '';
   $('joined').hidden = false;
   $('joined-info').textContent =

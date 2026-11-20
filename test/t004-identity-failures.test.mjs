@@ -70,7 +70,7 @@ test('T-004b a desk cannot issue caller commands; take sequence preserved', asyn
   // caller can start exactly one take; sequence preserved
   const take = await api(app.base, 'POST', `/api/rooms/${room.id}/takes`, {}, caller.sessionToken);
   assert.equal(take.status, 201);
-  const info = await api(app.base, 'GET', `/api/rooms/${room.id}`);
+  const info = await api(app.base, 'GET', `/api/rooms/${room.id}`, null, prod.ownerToken);
   assert.equal(info.data.takes.length, 1);
   assert.equal(info.data.takes[0].nextSeq, 1, 'no phantom events were recorded');
 });

@@ -32,7 +32,7 @@ test('T-002 invalid imports are rejected with row details; previous draft retain
   assert.match(err.message, /unknown predecessor/);
 
   // previous draft retained: still exactly one revision
-  const list = await api(app.base, 'GET', `/api/productions/${prod.id}`);
+  const list = await api(app.base, 'GET', `/api/productions/${prod.id}`, null, prod.ownerToken);
   assert.equal(list.data.revisions.length, 1);
   assert.equal(list.data.revisions[0].id, good.data.revision.id);
 });

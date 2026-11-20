@@ -8,16 +8,43 @@ function setStatus(el, msg, cls) {
   el.className = `status-line ${cls || ''}`;
 }
 
+function myProductions() {
+  try {
+    return JSON.parse(localStorage.getItem('sg-productions') ?? '[]');
+  } catch {
+    return [];
+  }
+}
+
+function rememberProduction(p) {
+  const list = myProductions();
+  if (!list.some((x) => x.id === p.id)) {
+    list.push({ id: p.id, name: p.name });
+    localStorage.setItem('sg-productions', JSON.stringify(list));
+  }
+}
+
 async function loadProductions() {
-  const { data } = await api('GET', '/api/productions');
   const list = $('prod-list');
   list.replaceChildren();
-  for (const p of data?.productions ?? []) {
+  // productions this browser created (credentials live in sessionStorage)
+  for (const p of myProductions()) {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.textContent = `Open ${p.name}`;
     btn.addEventListener('click', () => openProduction(p));
     li.append(`${p.name} `, btn);
+    list.append(li);
+  }
+  // public demo directory
+  const { data } = await api('GET', '/api/productions');
+  for (const p of data?.productions ?? []) {
+    if (myProductions().some((x) => x.id === p.id)) continue;
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.textContent = `Open ${p.name}`;
+    btn.addEventListener('click', () => openProduction(p));
+    li.append(`${p.name} (public demo) `, btn);
     list.append(li);
   }
 }
@@ -32,7 +59,7 @@ async function openProduction(p) {
 }
 
 async function loadRevisions() {
-  const { data } = await api('GET', `/api/productions/${state.production.id}`);
+  const { data } = await api('GET', `/api/productions/${state.production.id}`, null, state.ownerToken);
   const list = $('rev-list');
   list.replaceChildren();
   for (const r of data?.revisions ?? []) {
@@ -54,7 +81,7 @@ async function loadRevisions() {
 }
 
 async function previewRevision(id) {
-  const { data } = await api('GET', `/api/scripts/${id}`);
+  const { data } = await api('GET', `/api/scripts/${id}`, null, state.ownerToken);
   if (!data) return;
   const rev = data.revision;
   $('preview-section').hidden = false;
@@ -74,8 +101,8 @@ async function previewRevision(id) {
     }
     tbody.append(tr);
   });
-  $('export-link').href = `/api/scripts/${id}/export.csv`;
-  $('sheet-link').href = `/sheet.html?rev=${encodeURIComponent(id)}`;
+  $('export-link').dataset.rev = id;
+  $('sheet-link').href = `/sheet.html?rev=${encodeURIComponent(id)}&prod=${encodeURIComponent(state.production.id)}`;
   $('room-create').dataset.rev = id;
   $('preview-section').scrollIntoView({ block: 'nearest' });
 }
@@ -83,12 +110,35 @@ async function previewRevision(id) {
 $('prod-create').addEventListener('click', async () => {
   const name = $('prod-name').value.trim();
   if (!name) return setStatus($('prod-status'), 'Name the production first.', 'error');
-  const { ok, data } = await api('POST', '/api/productions', { name });
+  const { ok, data } = await api('POST', '/api/productions', {
+    name,
+    isDemo: $('prod-demo').value === 'demo',
+  });
   if (!ok) return setStatus($('prod-status'), data?.message ?? 'Failed to create.', 'error');
   sessionStorage.setItem(`owner:${data.id}`, data.ownerToken);
-  setStatus($('prod-status'), `Created ${data.name}. Owner token stored for this browser session only.`, 'ok');
+  rememberProduction(data);
+  setStatus($('prod-status'), `Created ${data.name} (${data.isDemo ? 'public demo' : 'private'}). Owner token stored for this browser session only.`, 'ok');
   $('prod-name').value = '';
-  $('room-create').addEventListener('click', async () => {
+  $('export-link').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const revId = $('export-link').dataset.rev;
+  const res = await fetch(`/api/scripts/${revId}/export.csv`, {
+    headers: state.ownerToken ? { authorization: `Bearer ${state.ownerToken}` } : {},
+  });
+  if (!res.ok) {
+    $('room-status').textContent = 'Export denied — owner or room role required.';
+    $('room-status').className = 'status-line error';
+    return;
+  }
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${revId}-calling-sheet.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$('room-create').addEventListener('click', async () => {
   const revId = $('room-create').dataset.rev;
   const { ok, data } = await api(
     'POST',
@@ -101,6 +151,7 @@ $('prod-create').addEventListener('click', async () => {
     $('room-status').classList.add('error');
     return;
   }
+  sessionStorage.setItem(`room-owner:${data.room.id}`, state.ownerToken ?? '');
   $('room-status').innerHTML = '';
   const a = document.createElement('a');
   a.href = `/room.html?room=${encodeURIComponent(data.room.id)}`;
@@ -140,6 +191,25 @@ $('csv-import').addEventListener('click', async () => {
   await previewRevision(data.revision.id);
 });
 
+$('export-link').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const revId = $('export-link').dataset.rev;
+  const res = await fetch(`/api/scripts/${revId}/export.csv`, {
+    headers: state.ownerToken ? { authorization: `Bearer ${state.ownerToken}` } : {},
+  });
+  if (!res.ok) {
+    $('room-status').textContent = 'Export denied — owner or room role required.';
+    $('room-status').className = 'status-line error';
+    return;
+  }
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${revId}-calling-sheet.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
 $('room-create').addEventListener('click', async () => {
   const revId = $('room-create').dataset.rev;
   const { ok, data } = await api(
@@ -153,6 +223,7 @@ $('room-create').addEventListener('click', async () => {
     $('room-status').classList.add('error');
     return;
   }
+  sessionStorage.setItem(`room-owner:${data.room.id}`, state.ownerToken ?? '');
   $('room-status').innerHTML = '';
   const a = document.createElement('a');
   a.href = `/room.html?room=${encodeURIComponent(data.room.id)}`;
