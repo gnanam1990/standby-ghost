@@ -1,14 +1,19 @@
 # Standby Ghost — acceptance report
 
 Verified on a clean checkout of `gnanam1990/standby-ghost` @ merge `1a569a6`
-(Node v22.23.1, macOS arm64). Reproduce exactly:
+(Node v22.23.1, macOS arm64): **28 node:test cases + 4 Playwright specs, all
+pass**. This report and a fifth browser spec (`handoff.spec.mjs`, the owner
+handoff flow) ship in the PR carrying this document — re-verify at that head.
+
+Reproduce exactly:
 
 ```sh
 git clone https://github.com/gnanam1990/standby-ghost.git
 cd standby-ghost
 npm ci
+npx playwright install chromium   # once, on a clean machine (no sudo needed on Linux: add --with-deps)
 npm test              # 28 node:test cases — all pass
-npm run test:browser  # 5 Playwright specs in real Chromium — all pass
+npm run test:browser  # Playwright specs in real Chromium — all pass
 npm start             # serves http://localhost:8080
 npm run seed:demo     # public demo production + room + three join links
 ```
